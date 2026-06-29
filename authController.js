@@ -1,5 +1,6 @@
-const User = require('../models/User');
-const { sendTokenResponse, sendEmail } = require('../utils/helpers');
+
+const User = require('./User');
+const { sendTokenResponse, sendEmail } = require('./helpers');
 const crypto = require('crypto');
 
 // @route POST /api/auth/register
@@ -83,7 +84,7 @@ exports.forgotPassword = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 min
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
@@ -91,7 +92,7 @@ exports.forgotPassword = async (req, res) => {
     await sendEmail({
       to: user.email,
       subject: 'Password Reset - Saba Ticket',
-      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password. Link expires in 10 minutes.</p>`,
+      html: `<p>Click <a href="${resetUrl}">here</a> to reset your password. Expires in 10 minutes.</p>`,
     });
 
     res.json({ success: true, message: 'Password reset email sent' });
