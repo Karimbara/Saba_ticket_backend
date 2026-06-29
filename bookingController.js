@@ -1,6 +1,6 @@
-const Booking = require('../models/Booking');
-const Trip = require('../models/Trip');
-const { sendTicketEmail } = require('../utils/helpers');
+const Booking = require('./Booking');
+const Trip = require('./Trip');
+const { sendTicketEmail } = require('./helpers');
 
 // @route POST /api/bookings/create
 exports.createBooking = async (req, res) => {
@@ -13,7 +13,6 @@ exports.createBooking = async (req, res) => {
     if (trip.availableSeats < passengers.length)
       return res.status(400).json({ success: false, message: 'Not enough seats available' });
 
-    // Check seats not already booked
     const requestedSeats = passengers.map(p => p.seatNumber);
     const alreadyBooked = trip.seats.filter(s => requestedSeats.includes(s.seatNumber) && s.isBooked);
     if (alreadyBooked.length > 0)
@@ -52,7 +51,6 @@ exports.getMyBookings = async (req, res) => {
     const bookings = await Booking.find({ user: req.user.id })
       .populate('trip', 'type name from to departureTime arrivalTime')
       .sort({ createdAt: -1 });
-
     res.json({ success: true, count: bookings.length, bookings });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -65,9 +63,7 @@ exports.getBookingById = async (req, res) => {
     const booking = await Booking.findOne({ _id: req.params.id, user: req.user.id })
       .populate('trip')
       .populate('user', 'name email phone');
-
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
-
     res.json({ success: true, booking });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -82,7 +78,6 @@ exports.cancelBooking = async (req, res) => {
     if (booking.bookingStatus === 'cancelled')
       return res.status(400).json({ success: false, message: 'Already cancelled' });
 
-    // Check if departure is in the future (allow cancellation only if >2 hours away)
     const now = new Date();
     const departure = new Date(booking.trip.departureTime);
     const hoursUntilDeparture = (departure - now) / (1000 * 60 * 60);
@@ -90,7 +85,6 @@ exports.cancelBooking = async (req, res) => {
     if (hoursUntilDeparture < 2)
       return res.status(400).json({ success: false, message: 'Cannot cancel within 2 hours of departure' });
 
-    // Simple refund policy: 80% refund if cancelled > 24h before, 50% otherwise
     const refundPercent = hoursUntilDeparture > 24 ? 0.8 : 0.5;
     const refundAmount = booking.paymentStatus === 'paid' ? Math.round(booking.totalAmount * refundPercent) : 0;
 
@@ -99,13 +93,9 @@ exports.cancelBooking = async (req, res) => {
     booking.refundAmount = refundAmount;
     await booking.save();
 
-    // Free up seats in trip
     await Trip.findByIdAndUpdate(booking.trip._id, {
       $inc: { availableSeats: booking.passengers.length },
-      $set: {
-        'seats.$[elem].isBooked': false,
-        'seats.$[elem].bookedBy': null,
-      }
+      $set: { 'seats.$[elem].isBooked': false, 'seats.$[elem].bookedBy': null }
     }, {
       arrayFilters: [{ 'elem.seatNumber': { $in: booking.passengers.map(p => p.seatNumber) } }]
     });
