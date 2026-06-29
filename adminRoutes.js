@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getDashboard, getAllTrips, createTrip, updateTrip, deleteTrip, getAllBookings, getAllUsers, toggleUserBan } = require('../controllers/adminController');
-const { protect, adminOnly } = require('../middleware/auth');
+const { getDashboard, getAllTrips, createTrip, updateTrip, deleteTrip, getAllBookings, getAllUsers, toggleUserBan } = require('./adminController');
+const { protect, adminOnly } = require('./auth');
 
-router.use(protect, adminOnly);  // All admin routes require auth + admin role
+router.use(protect, adminOnly);
 
 router.get('/dashboard', getDashboard);
 
